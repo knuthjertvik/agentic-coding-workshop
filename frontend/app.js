@@ -1,6 +1,20 @@
 // REQ-001/006/009/015/018 — fetch today's hourly prices, render, persist zone.
 // REQ-012/013/014/016/021 — charging recommendation highlight + config prompt.
 
+// REQ-010/011 — Norgespris mode hides the main app and shows a calm message;
+// preference persists in localStorage across reloads.
+const NORGESPRIS_KEY = 'norgespris';
+
+function applyNorgespris(enabled) {
+  const mainApp = document.getElementById('main-app');
+  const msg = document.getElementById('norgespris-msg');
+  const chart = document.querySelector('#price-chart');
+  mainApp.hidden = enabled;
+  msg.hidden = !enabled;
+  if (chart) chart.hidden = enabled;
+  localStorage.setItem(NORGESPRIS_KEY, enabled ? 'true' : 'false');
+}
+
 const ZONE_KEY = 'zone';
 const HOURS_KEY = 'hours';
 const CONTIGUOUS_KEY = 'contiguous';
@@ -171,6 +185,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const select = document.getElementById('zone');
   const hoursInput = document.getElementById('charging-hours');
   const contiguousInput = document.getElementById('contiguous');
+  const norgesprisInput = document.getElementById('norgespris');
+
+  const norgesprisEnabled = localStorage.getItem(NORGESPRIS_KEY) === 'true';
+  norgesprisInput.checked = norgesprisEnabled;
+  applyNorgespris(norgesprisEnabled);
+  norgesprisInput.addEventListener('change', () => {
+    applyNorgespris(norgesprisInput.checked);
+  });
 
   select.value = localStorage.getItem(ZONE_KEY) || DEFAULT_ZONE;
   const savedHours = localStorage.getItem(HOURS_KEY);
