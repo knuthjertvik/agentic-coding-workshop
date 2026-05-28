@@ -3,10 +3,9 @@
 REQ-019 / REQ-020 — pending.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import httpx
-import pytest
 
 
 def _hours(day):
@@ -28,11 +27,22 @@ def _seed_cache(db_session, zone, day):
     db_session.commit()
 
 
-@pytest.mark.xfail(reason="REQ-019: not yet implemented")
+def _pin_clock(monkeypatch):
+    # Pin pre-12:45 so the endpoint only fetches today (V3 behavior would
+    # also fetch tomorrow after the publish window, polluting the assertions).
+    from app import prices as prices_module
+
+    monkeypatch.setattr(
+        prices_module, "now_cet",
+        lambda: datetime.combine(date.today(), time(10, 0)),
+    )
+
+
 def test_upstream_timeout_serves_stale_cache(client, db_session, monkeypatch):
     # REQ-019
     from app import strompris_client
 
+    _pin_clock(monkeypatch)
     _seed_cache(db_session, "NO1", date.today())
 
     def boom(zone, day):
@@ -44,11 +54,11 @@ def test_upstream_timeout_serves_stale_cache(client, db_session, monkeypatch):
     assert len(resp.json()["hours"]) == 24
 
 
-@pytest.mark.xfail(reason="REQ-019: not yet implemented")
 def test_upstream_http_error_serves_stale_cache(client, db_session, monkeypatch):
     # REQ-019
     from app import strompris_client
 
+    _pin_clock(monkeypatch)
     _seed_cache(db_session, "NO1", date.today())
 
     def boom(zone, day):
@@ -62,10 +72,11 @@ def test_upstream_http_error_serves_stale_cache(client, db_session, monkeypatch)
     assert len(resp.json()["hours"]) == 24
 
 
-@pytest.mark.xfail(reason="REQ-020: not yet implemented")
 def test_upstream_fail_with_no_cache_returns_unavailable_error(client, monkeypatch):
     # REQ-020
     from app import strompris_client
+
+    _pin_clock(monkeypatch)
 
     def boom(zone, day):
         raise httpx.TimeoutException("upstream timed out")

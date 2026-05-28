@@ -11,6 +11,7 @@ import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -75,8 +76,16 @@ def _validate_zone(zone: str) -> None:
         raise HTTPException(status_code=422, detail=f"Invalid zone {zone!r}")
 
 
-def _hours_for(zone: str, target_date: date, db: Session) -> list[dict]:
-    """Return cached or freshly-fetched hours for (zone, date), honouring REQ-017."""
+def _hours_for(
+    zone: str, target_date: date, db: Session, *, required: bool = True,
+) -> list[dict] | None:
+    """Return cached or freshly-fetched hours for (zone, date), honouring REQ-017.
+
+    On upstream failure (REQ-019), fall back to the most recent cached row for
+    (zone, date) regardless of staleness. If no cache exists and `required` is
+    True, raise 503 (REQ-020); if `required` is False (e.g. tomorrow's slice
+    after the publish window), return None so the caller can omit it.
+    """
     boundary = most_recent_1245_cet_boundary()
     cached = (
         db.query(PriceDay)
@@ -86,7 +95,17 @@ def _hours_for(zone: str, target_date: date, db: Session) -> list[dict]:
     if cached is not None and cached.fetched_at >= boundary:
         return json.loads(cached.payload_json)
 
-    upstream_rows = strompris_client.fetch_day(zone, target_date)
+    try:
+        upstream_rows = strompris_client.fetch_day(zone, target_date)
+    except (httpx.HTTPError, httpx.TimeoutException):
+        # REQ-019 — serve stale cache when upstream is unreachable.
+        if cached is not None:
+            return json.loads(cached.payload_json)
+        if required:
+            # REQ-020 — no cache, no upstream, primary day requested.
+            raise HTTPException(status_code=503, detail="Prices unavailable")
+        return None
+
     hours = _build_hours(upstream_rows)
     payload_json = json.dumps(hours)
     if cached is None:
@@ -122,9 +141,12 @@ def get_prices(
     # and trim today to the still-upcoming hours so the UI shows a rolling
     # window spanning the day boundary.
     if _past_publish_window(now):
-        tomorrow_hours = _hours_for(zone, today + timedelta(days=1), db)
+        tomorrow_hours = _hours_for(
+            zone, today + timedelta(days=1), db, required=False,
+        )
+        # REQ-019/020 — if tomorrow is unavailable, today still serves.
         hours = [h for h in hours
-                 if datetime.fromisoformat(h["start"]) >= now] + tomorrow_hours
+                 if datetime.fromisoformat(h["start"]) >= now] + (tomorrow_hours or [])
     return {"zone": zone, "date": today.isoformat(), "hours": hours}
 
 
@@ -141,7 +163,10 @@ def get_recommendation(
     target_date = now.date()
     rows = _hours_for(zone, target_date, db)
     if _past_publish_window(now):
-        rows = rows + _hours_for(zone, target_date + timedelta(days=1), db)
+        tomorrow = _hours_for(
+            zone, target_date + timedelta(days=1), db, required=False,
+        )
+        rows = rows + (tomorrow or [])
     future = [r for r in rows if datetime.fromisoformat(r["start"]) >= now]
     if hours > len(future):
         # REQ-021 — surface the shortfall as a 200 with an explicit error body

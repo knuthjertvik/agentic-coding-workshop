@@ -44,7 +44,18 @@ async function loadPrices() {
   loading.hidden = false;
   try {
     const r = await fetch(`/api/prices?zone=${encodeURIComponent(zone)}`);
-    if (!r.ok) throw new Error(`prices request failed: ${r.status}`);
+    if (!r.ok) {
+      // REQ-020 — surface upstream-unavailable as the server-reported detail.
+      let detail = `prices request failed: ${r.status}`;
+      try {
+        const body = await r.json();
+        if (body && body.detail) detail = body.detail;
+      } catch (_) { /* non-JSON body — keep the fallback message */ }
+      tbody.innerHTML = '';
+      showError(detail);
+      return;
+    }
+    clearError();
     const data = await r.json();
     document.getElementById('date-label').textContent = data.date;
     tbody.innerHTML = '';
@@ -148,6 +159,12 @@ function showError(msg) {
   const el = document.getElementById('error');
   el.textContent = msg;
   el.hidden = false;
+}
+
+function clearError() {
+  const el = document.getElementById('error');
+  el.textContent = '';
+  el.hidden = true;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
