@@ -128,14 +128,22 @@ const BUCKET_COLOURS = {
   expensive: '#dc2626',
 };
 
+let chartInstance = null;
+
 function renderChart(hours, avg) {
   const canvas = document.getElementById('price-chart');
-  if (!canvas || typeof Chart === 'undefined') return;
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    // Visible failure rather than silent — the chart CDN is the only external
+    // dep, so loading issues should not look like a backend bug.
+    showError('Chart library failed to load');
+    return;
+  }
   const labels = hours.map((h) => hourLabel(h.start));
   const values = hours.map((h) => h.total);
   const colours = hours.map((h) => BUCKET_COLOURS[bucketHour(h.total, avg)]);
-  if (window._chart) window._chart.destroy();
-  window._chart = new Chart(canvas, {
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(canvas, {
     type: 'line',
     data: {
       labels,
@@ -195,7 +203,18 @@ async function loadRecommendation() {
       + `&hours=${hours}&contiguous=${contiguous}`;
     const r = await fetch(url);
     if (!r.ok) {
-      showRecommendationError(`Recommendation failed: ${r.status}`);
+      // FastAPI returns 422 with a `detail` array of Pydantic errors; surface
+      // the first `msg` so over-bound hour values get a friendly message.
+      let message = `Recommendation failed: ${r.status}`;
+      try {
+        const body = await r.json();
+        if (Array.isArray(body.detail) && body.detail.length && body.detail[0].msg) {
+          message = body.detail[0].msg;
+        } else if (typeof body.detail === 'string') {
+          message = body.detail;
+        }
+      } catch (_) { /* non-JSON body — keep the fallback message */ }
+      showRecommendationError(message);
       return;
     }
     const data = await r.json();

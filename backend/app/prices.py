@@ -35,12 +35,13 @@ def grid_tariff_ore(dt: datetime) -> float:
 
 
 def build_hour_row(spot_ore: float, dt: datetime) -> dict:
-    vat = apply_vat(spot_ore) - spot_ore
+    gross = apply_vat(spot_ore)
+    vat = gross - spot_ore
     tariff = grid_tariff_ore(dt)
     return {
         "start": dt.isoformat(),
         "spot": spot_ore,
         "vat": vat,
         "tariff": tariff,
-        "total": apply_vat(spot_ore) + tariff,
+        "total": gross + tariff,
     }

@@ -86,7 +86,9 @@ def _hours_for(
     True, raise 503 (REQ-020); if `required` is False (e.g. tomorrow's slice
     after the publish window), return None so the caller can omit it.
     """
-    boundary = most_recent_1245_cet_boundary()
+    # Use the injectable clock so tests pinning `now_cet` deterministically
+    # control cache freshness (REQ-017).
+    boundary = most_recent_1245_cet_boundary(prices.now_cet())
     cached = (
         db.query(PriceDay)
         .filter(PriceDay.zone == zone, PriceDay.date == target_date)
@@ -97,7 +99,8 @@ def _hours_for(
 
     try:
         upstream_rows = strompris_client.fetch_day(zone, target_date)
-    except (httpx.HTTPError, httpx.TimeoutException):
+    except httpx.HTTPError:
+        # httpx.TimeoutException subclasses HTTPError, so this catches both.
         # REQ-019 — serve stale cache when upstream is unreachable.
         if cached is not None:
             return json.loads(cached.payload_json)
@@ -108,15 +111,18 @@ def _hours_for(
 
     hours = _build_hours(upstream_rows)
     payload_json = json.dumps(hours)
+    # Use the same naive Europe/Oslo clock as the publish boundary so cache
+    # freshness comparisons are correct regardless of host timezone (REQ-017).
+    fetched_at = prices.now_cet()
     if cached is None:
         db.add(PriceDay(
             zone=zone,
             date=target_date,
-            fetched_at=datetime.now(),
+            fetched_at=fetched_at,
             payload_json=payload_json,
         ))
     else:
-        cached.fetched_at = datetime.now()
+        cached.fetched_at = fetched_at
         cached.payload_json = payload_json
     db.commit()
     return hours
@@ -125,18 +131,12 @@ def _hours_for(
 @router.get("/prices")
 def get_prices(
     zone: str = Query("NO1"),
-    date_param: str | None = Query(None, alias="date"),
     db: Session = Depends(get_db),
 ):
     _validate_zone(zone)
-    if date_param:
-        target_date = date.fromisoformat(date_param)
-        hours = _hours_for(zone, target_date, db)
-        return {"zone": zone, "date": target_date.isoformat(), "hours": hours}
-
     now = prices.now_cet()
     today = now.date()
-    hours = _hours_for(zone, today, db)
+    hours = _hours_for(zone, today, db, required=True)
     # REQ-007/REQ-008 — after the 12:45 publish window, also fetch tomorrow
     # and trim today to the still-upcoming hours so the UI shows a rolling
     # window spanning the day boundary.
@@ -161,7 +161,8 @@ def get_recommendation(
     _validate_zone(zone)
     now = prices.now_cet()
     target_date = now.date()
-    rows = _hours_for(zone, target_date, db)
+    # `required=True` — missing today raises 503 (REQ-020).
+    rows = _hours_for(zone, target_date, db, required=True)
     if _past_publish_window(now):
         tomorrow = _hours_for(
             zone, target_date + timedelta(days=1), db, required=False,
@@ -177,7 +178,9 @@ def get_recommendation(
             "requested": hours,
         }
     picker = cheapest_contiguous if contiguous else cheapest_individual
-    picks = picker(rows, hours, now)
+    # Pass the already-filtered `future` list for clarity; the picker re-filters
+    # against `now` but the operation is idempotent.
+    picks = picker(future, hours, now)
     return {
         "zone": zone,
         "date": target_date.isoformat(),

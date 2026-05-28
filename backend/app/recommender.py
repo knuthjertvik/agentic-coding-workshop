@@ -22,7 +22,8 @@ def cheapest_individual(hours: list[dict], n: int, now: datetime) -> list[dict]:
 def cheapest_contiguous(hours: list[dict], n: int, now: datetime) -> list[dict]:
     future = _future_hours(hours, now)
     if n <= 0 or len(future) < n:
-        return future[:n] if n > 0 else []
+        # Shortfall — caller surfaces a 200+error body (REQ-021).
+        return []
     best_start = min(
         range(len(future) - n + 1),
         key=lambda i: sum(h["total"] for h in future[i:i + n]),

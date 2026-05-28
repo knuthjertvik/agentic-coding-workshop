@@ -125,6 +125,37 @@ def test_cache_hit_within_publish_window_skips_upstream(client, monkeypatch):
     assert calls["n"] == 1
 
 
+def test_stale_cache_refreshed_when_upstream_succeeds(client, db_session, monkeypatch):
+    # REQ-017 — a row older than the most recent 12:45 boundary must be
+    # refetched and its fetched_at advanced to the current clock.
+    import json
+    from datetime import date as date_t
+    from app import prices as prices_module
+    from app import strompris_client
+    from app.models import PriceDay
+
+    target = date_t(2026, 5, 28)
+    # Before yesterday's 12:45 boundary relative to pinned_now → stale.
+    stale_when = datetime(2026, 5, 26, 13, 0)
+    db_session.add(PriceDay(zone="NO1", date=target, fetched_at=stale_when,
+                            payload_json=json.dumps([])))
+    db_session.commit()
+
+    pinned_now = datetime(2026, 5, 28, 10, 0)
+    monkeypatch.setattr(prices_module, "now_cet", lambda: pinned_now)
+    monkeypatch.setattr(strompris_client, "fetch_day",
+                        lambda z, d: _fake_upstream(z, d))
+
+    resp = client.get("/api/prices", params={"zone": "NO1"})
+    assert resp.status_code == 200
+    assert len(resp.json()["hours"]) == 24
+
+    row = db_session.query(PriceDay).filter_by(zone="NO1", date=target).one()
+    assert row.fetched_at == pinned_now
+    assert row.fetched_at > stale_when
+    assert json.loads(row.payload_json), "payload replaced with fresh hours"
+
+
 def test_cache_miss_triggers_upstream_call(client, monkeypatch):
     # REQ-001
     from app import prices as prices_module
