@@ -5,8 +5,6 @@ REQ-012 / REQ-013 / REQ-021 — pending.
 
 from datetime import datetime
 
-import pytest
-
 
 def _series(start_hour, prices):
     """Build a list of {start, total} rows starting at the given hour."""
@@ -17,7 +15,6 @@ def _series(start_hour, prices):
     ]
 
 
-@pytest.mark.xfail(reason="REQ-012: not yet implemented")
 def test_individual_cheapest_returns_n_lowest_hours():
     # REQ-012
     from app.recommender import cheapest_individual
@@ -34,7 +31,6 @@ def test_individual_cheapest_returns_n_lowest_hours():
     }
 
 
-@pytest.mark.xfail(reason="REQ-013: not yet implemented")
 def test_contiguous_cheapest_returns_window_with_lowest_average():
     # REQ-013
     from app.recommender import cheapest_contiguous
@@ -51,7 +47,6 @@ def test_contiguous_cheapest_returns_window_with_lowest_average():
     ]
 
 
-@pytest.mark.xfail(reason="REQ-012/013: not yet implemented")
 def test_recommendation_filters_to_future_hours_only():
     # REQ-012/013 — "remaining hours today + tomorrow when available"
     from app.recommender import cheapest_individual
@@ -64,7 +59,6 @@ def test_recommendation_filters_to_future_hours_only():
         assert p["start"] >= datetime(2026, 5, 28, 5).isoformat()
 
 
-@pytest.mark.xfail(reason="REQ-021: not yet implemented")
 def test_request_more_hours_than_available_returns_error_message(client, monkeypatch):
     # REQ-021
     from app import strompris_client

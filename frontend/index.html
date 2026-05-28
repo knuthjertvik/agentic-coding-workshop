@@ -17,7 +17,7 @@
     <h1 class="text-3xl font-bold">Electricity Prices</h1>
 
     <section class="rounded-lg border border-slate-200 bg-white p-4 space-y-3">
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <label for="zone" class="font-medium">Zone:</label>
         <select id="zone" class="rounded border border-slate-300 px-2 py-1">
           <option value="NO1">NO1</option>
@@ -26,9 +26,34 @@
           <option value="NO4">NO4</option>
           <option value="NO5">NO5</option>
         </select>
+
+        <label for="charging-hours" class="font-medium">Charging hours:</label>
+        <input id="charging-hours" type="number" min="1" max="48"
+               class="w-20 rounded border border-slate-300 px-2 py-1" />
+
+        <label class="flex items-center gap-1">
+          <input id="contiguous" type="checkbox" />
+          <span>Contiguous</span>
+        </label>
+
         <span id="date-label" class="text-slate-600"></span>
         <span id="loading" class="text-slate-500" hidden>Loading…</span>
       </div>
+
+      <!-- REQ-014: visible until both zone and charging hours are configured. -->
+      <div id="config-prompt"
+           class="rounded border border-amber-300 bg-amber-50 text-amber-900 p-3 text-sm"
+           hidden>
+        Set zone and number of charging hours to get a recommendation.
+      </div>
+
+      <!-- REQ-021: shortfall / recommender errors land here. -->
+      <div id="recommendation-error"
+           class="rounded border border-red-300 bg-red-50 text-red-800 p-3 text-sm"
+           hidden></div>
+
+      <!-- REQ-016: hidden while /api/recommendation is in flight. -->
+      <div id="recommendation-panel" class="text-sm text-slate-700" hidden></div>
 
       <table class="w-full text-sm">
         <thead>

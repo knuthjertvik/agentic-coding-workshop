@@ -1,7 +1,11 @@
 // REQ-001/006/009/015/018 — fetch today's hourly prices, render, persist zone.
+// REQ-012/013/014/016/021 — charging recommendation highlight + config prompt.
 
 const ZONE_KEY = 'zone';
+const HOURS_KEY = 'hours';
+const CONTIGUOUS_KEY = 'contiguous';
 const DEFAULT_ZONE = 'NO1';
+const HIGHLIGHT_CLASS = 'bg-green-100';
 
 function fmt(n) {
   return Number(n).toFixed(2);
@@ -13,8 +17,28 @@ function hourLabel(iso) {
   return t.slice(0, 5);
 }
 
+function currentZone() {
+  return document.getElementById('zone').value;
+}
+
+function currentHours() {
+  const raw = document.getElementById('charging-hours').value;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function currentContiguous() {
+  return document.getElementById('contiguous').checked;
+}
+
+function updateConfigPrompt() {
+  // REQ-014 — prompt visible until zone AND hours are both configured.
+  const prompt = document.getElementById('config-prompt');
+  prompt.hidden = !!(currentZone() && currentHours());
+}
+
 async function loadPrices() {
-  const zone = document.getElementById('zone').value;
+  const zone = currentZone();
   const loading = document.getElementById('loading');
   const tbody = document.getElementById('hours-body');
   loading.hidden = false;
@@ -27,6 +51,7 @@ async function loadPrices() {
     for (const hour of data.hours) {
       const tr = document.createElement('tr');
       tr.className = 'border-b border-slate-100';
+      tr.dataset.start = hour.start;
       tr.innerHTML = `
         <td class="py-1 font-mono">${hourLabel(hour.start)}</td>
         <td class="py-1 text-right font-mono">${fmt(hour.spot)}</td>
@@ -42,6 +67,70 @@ async function loadPrices() {
   }
 }
 
+function clearHighlights() {
+  for (const tr of document.querySelectorAll('#hours-body tr')) {
+    tr.classList.remove(HIGHLIGHT_CLASS);
+  }
+}
+
+function showRecommendationError(msg) {
+  const el = document.getElementById('recommendation-error');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function clearRecommendationError() {
+  const el = document.getElementById('recommendation-error');
+  el.textContent = '';
+  el.hidden = true;
+}
+
+async function loadRecommendation() {
+  const hours = currentHours();
+  if (!hours) {
+    clearHighlights();
+    document.getElementById('recommendation-panel').hidden = true;
+    return;
+  }
+  const zone = currentZone();
+  const contiguous = currentContiguous();
+  const panel = document.getElementById('recommendation-panel');
+  // REQ-016 — hide panel while the request is in flight.
+  panel.hidden = true;
+  clearHighlights();
+  clearRecommendationError();
+  try {
+    const url = `/api/recommendation?zone=${encodeURIComponent(zone)}`
+      + `&hours=${hours}&contiguous=${contiguous}`;
+    const r = await fetch(url);
+    if (!r.ok) {
+      showRecommendationError(`Recommendation failed: ${r.status}`);
+      return;
+    }
+    const data = await r.json();
+    if (data.error) {
+      // REQ-021 — over-request surfaces as an error banner above the table.
+      showRecommendationError(data.error);
+      return;
+    }
+    const starts = new Set(data.picks.map((p) => p.start));
+    for (const tr of document.querySelectorAll('#hours-body tr')) {
+      if (starts.has(tr.dataset.start)) tr.classList.add(HIGHLIGHT_CLASS);
+    }
+    const mode = data.contiguous ? 'contiguous' : 'individual';
+    panel.textContent = `Recommended ${data.picks.length} ${mode} hour(s) highlighted below.`;
+    panel.hidden = false;
+  } catch (e) {
+    showRecommendationError('Could not load recommendation.');
+  }
+}
+
+async function refreshAll() {
+  updateConfigPrompt();
+  await loadPrices();
+  await loadRecommendation();
+}
+
 function showError(msg) {
   const el = document.getElementById('error');
   el.textContent = msg;
@@ -50,11 +139,28 @@ function showError(msg) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const select = document.getElementById('zone');
-  const savedZone = localStorage.getItem(ZONE_KEY) || DEFAULT_ZONE;
-  select.value = savedZone;
+  const hoursInput = document.getElementById('charging-hours');
+  const contiguousInput = document.getElementById('contiguous');
+
+  select.value = localStorage.getItem(ZONE_KEY) || DEFAULT_ZONE;
+  const savedHours = localStorage.getItem(HOURS_KEY);
+  if (savedHours) hoursInput.value = savedHours;
+  contiguousInput.checked = localStorage.getItem(CONTIGUOUS_KEY) === 'true';
+
   select.addEventListener('change', () => {
     localStorage.setItem(ZONE_KEY, select.value);
-    loadPrices();
+    refreshAll();
   });
-  loadPrices();
+  hoursInput.addEventListener('change', () => {
+    if (hoursInput.value) localStorage.setItem(HOURS_KEY, hoursInput.value);
+    else localStorage.removeItem(HOURS_KEY);
+    updateConfigPrompt();
+    loadRecommendation();
+  });
+  contiguousInput.addEventListener('change', () => {
+    localStorage.setItem(CONTIGUOUS_KEY, String(contiguousInput.checked));
+    loadRecommendation();
+  });
+
+  refreshAll();
 });
