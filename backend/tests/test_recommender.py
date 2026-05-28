@@ -61,8 +61,14 @@ def test_recommendation_filters_to_future_hours_only():
 
 def test_request_more_hours_than_available_returns_error_message(client, monkeypatch):
     # REQ-021
+    from app import prices as prices_module
     from app import strompris_client
 
+    # Pin the clock to before the 12:45 publish window so the endpoint
+    # only considers today (24 hours) — otherwise tomorrow's 24 would be
+    # added and 30 would be satisfiable.
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     # 24 hours available, ask for 30
     monkeypatch.setattr(
         strompris_client, "fetch_day",

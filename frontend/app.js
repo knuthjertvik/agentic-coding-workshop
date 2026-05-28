@@ -48,7 +48,20 @@ async function loadPrices() {
     const data = await r.json();
     document.getElementById('date-label').textContent = data.date;
     tbody.innerHTML = '';
+    // REQ-008 — when the window spans midnight (after 12:45 publish),
+    // insert a date-header row between today and tomorrow.
+    let currentDate = null;
     for (const hour of data.hours) {
+      const hourDate = hour.start.split('T')[0];
+      if (hourDate !== currentDate) {
+        if (currentDate !== null) {
+          const header = document.createElement('tr');
+          header.className = 'bg-slate-100 font-semibold';
+          header.innerHTML = `<td class="py-1" colspan="5">${hourDate}</td>`;
+          tbody.appendChild(header);
+        }
+        currentDate = hourDate;
+      }
       const tr = document.createElement('tr');
       tr.className = 'border-b border-slate-100';
       tr.dataset.start = hour.start;

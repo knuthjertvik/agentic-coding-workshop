@@ -6,8 +6,6 @@ so tests can pin the wall-clock without freezegun.
 
 from datetime import date, datetime, timedelta
 
-import pytest
-
 
 def _fake_upstream(zone, day):
     return [
@@ -17,7 +15,6 @@ def _fake_upstream(zone, day):
     ]
 
 
-@pytest.mark.xfail(reason="REQ-007: not yet implemented")
 def test_before_1245_cet_does_not_fetch_tomorrow(client, monkeypatch):
     # REQ-007 — tomorrow's prices are not yet published before 12:45
     from app import prices as prices_module
@@ -34,7 +31,6 @@ def test_before_1245_cet_does_not_fetch_tomorrow(client, monkeypatch):
     assert today + timedelta(days=1) not in requested_days
 
 
-@pytest.mark.xfail(reason="REQ-007: not yet implemented")
 def test_after_1245_cet_fetches_tomorrow(client, monkeypatch):
     # REQ-007
     from app import prices as prices_module
@@ -51,7 +47,6 @@ def test_after_1245_cet_fetches_tomorrow(client, monkeypatch):
     assert today + timedelta(days=1) in requested_days
 
 
-@pytest.mark.xfail(reason="REQ-008: not yet implemented")
 def test_response_combines_remaining_today_and_tomorrow(client, monkeypatch):
     # REQ-008 — payload includes remaining hours of today + all of tomorrow
     from app import prices as prices_module

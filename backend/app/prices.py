@@ -5,6 +5,14 @@ is trivially unit-testable.
 """
 
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+
+def now_cet() -> datetime:
+    # REQ-007 — injected wall clock; tests monkeypatch this symbol so the
+    # 12:45 publish-window logic is deterministic without freezegun.
+    return datetime.now(ZoneInfo("Europe/Oslo")).replace(tzinfo=None)
+
 
 VAT_RATE = 1.25
 TARIFF_DAY_ORE = 36.40   # REQ-003 — weekday 06:00–22:00 CET/CEST

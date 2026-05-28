@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from .. import strompris_client
+from .. import prices, strompris_client
 from ..database import get_db
 from ..models import PriceDay
 from ..prices import build_hour_row
@@ -45,7 +45,16 @@ def most_recent_1245_cet_boundary(now: datetime | None = None) -> datetime:
 
 
 def _today_cet() -> date:
-    return datetime.now(CET).date()
+    # REQ-007 — go through the injectable clock so tests can pin wall-time.
+    return prices.now_cet().date()
+
+
+PUBLISH_TIME = (PUBLISH_HOUR, PUBLISH_MINUTE)
+
+
+def _past_publish_window(now: datetime) -> bool:
+    # REQ-007 — tomorrow's day-ahead prices land at 12:45 Europe/Oslo.
+    return (now.hour, now.minute) >= PUBLISH_TIME
 
 
 def _build_hours(upstream_rows: list[dict]) -> list[dict]:
@@ -101,9 +110,22 @@ def get_prices(
     db: Session = Depends(get_db),
 ):
     _validate_zone(zone)
-    target_date = date.fromisoformat(date_param) if date_param else _today_cet()
-    hours = _hours_for(zone, target_date, db)
-    return {"zone": zone, "date": target_date.isoformat(), "hours": hours}
+    if date_param:
+        target_date = date.fromisoformat(date_param)
+        hours = _hours_for(zone, target_date, db)
+        return {"zone": zone, "date": target_date.isoformat(), "hours": hours}
+
+    now = prices.now_cet()
+    today = now.date()
+    hours = _hours_for(zone, today, db)
+    # REQ-007/REQ-008 — after the 12:45 publish window, also fetch tomorrow
+    # and trim today to the still-upcoming hours so the UI shows a rolling
+    # window spanning the day boundary.
+    if _past_publish_window(now):
+        tomorrow_hours = _hours_for(zone, today + timedelta(days=1), db)
+        hours = [h for h in hours
+                 if datetime.fromisoformat(h["start"]) >= now] + tomorrow_hours
+    return {"zone": zone, "date": today.isoformat(), "hours": hours}
 
 
 @router.get("/recommendation")
@@ -115,9 +137,11 @@ def get_recommendation(
 ):
     # REQ-012/013 — pick cheapest individual or contiguous hours from now onward.
     _validate_zone(zone)
-    target_date = _today_cet()
+    now = prices.now_cet()
+    target_date = now.date()
     rows = _hours_for(zone, target_date, db)
-    now = datetime.now(CET).replace(tzinfo=None)
+    if _past_publish_window(now):
+        rows = rows + _hours_for(zone, target_date + timedelta(days=1), db)
     future = [r for r in rows if datetime.fromisoformat(r["start"]) >= now]
     if hours > len(future):
         # REQ-021 — surface the shortfall as a 200 with an explicit error body

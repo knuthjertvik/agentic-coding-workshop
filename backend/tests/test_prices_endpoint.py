@@ -24,8 +24,11 @@ def _fake_upstream(zone, day):
 
 def test_prices_endpoint_returns_today_hours_for_no1(client, monkeypatch):
     # REQ-001, REQ-023
+    from app import prices as prices_module
     from app import strompris_client
 
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     monkeypatch.setattr(strompris_client, "fetch_day",
                         lambda zone, day: _fake_upstream(zone, day))
     resp = client.get("/api/prices", params={"zone": "NO1"})
@@ -70,8 +73,11 @@ def test_prices_endpoint_rejects_unknown_zone(client):
 
 def test_prices_response_includes_cet_labeled_timestamps_and_date(client, monkeypatch):
     # REQ-004
+    from app import prices as prices_module
     from app import strompris_client
 
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     monkeypatch.setattr(strompris_client, "fetch_day",
                         lambda z, d: _fake_upstream(z, d))
     body = client.get("/api/prices", params={"zone": "NO1"}).json()
@@ -84,21 +90,29 @@ def test_prices_response_includes_cet_labeled_timestamps_and_date(client, monkey
 
 def test_prices_persisted_to_sqlite_keyed_by_zone_and_date(client, db_session, monkeypatch):
     # REQ-005
+    from app import prices as prices_module
     from app import strompris_client
     from app.models import PriceDay
 
+    # Pin to before 12:45 so only today's row is persisted (tomorrow-fetch
+    # would otherwise add a second row after the publish window).
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     monkeypatch.setattr(strompris_client, "fetch_day",
                         lambda z, d: _fake_upstream(z, d))
     client.get("/api/prices", params={"zone": "NO1"})
     rows = db_session.query(PriceDay).filter_by(zone="NO1").all()
     assert len(rows) == 1
-    assert rows[0].date == date.today()
+    assert rows[0].date == date(2026, 5, 28)
 
 
 def test_cache_hit_within_publish_window_skips_upstream(client, monkeypatch):
     # REQ-017 — second call within the same publish window must not hit upstream
+    from app import prices as prices_module
     from app import strompris_client
 
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     calls = {"n": 0}
 
     def counting(zone, day):
@@ -113,8 +127,11 @@ def test_cache_hit_within_publish_window_skips_upstream(client, monkeypatch):
 
 def test_cache_miss_triggers_upstream_call(client, monkeypatch):
     # REQ-001
+    from app import prices as prices_module
     from app import strompris_client
 
+    monkeypatch.setattr(prices_module, "now_cet",
+                        lambda: datetime(2026, 5, 28, 10, 0))
     calls = {"n": 0}
 
     def counting(zone, day):
