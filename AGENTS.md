@@ -13,6 +13,11 @@ Full rationale: [`docs/code-principles.md`](docs/code-principles.md).
 - Validate at boundaries (Pydantic/SQLAlchemy at HTTP/DB edge); trust internal code.
 - No premature abstraction — wait for the third use.
 - Small functions named for intent; "and" in the name means split it.
+- Always work on feature branches
+- Make atomic commits
 
 ## Subdirs
 - `backend/AGENTS.md` — test isolation.
+
+
+
