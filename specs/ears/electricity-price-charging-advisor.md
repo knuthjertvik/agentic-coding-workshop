@@ -12,30 +12,30 @@ This repo ships a minimal FastAPI + SQLite + vanilla-JS template. We are adding 
 
 ## Pending changes
 
-- [ ] **REQ-001** — On app open, fetch today's hourly spot prices for the selected zone from hvakosterstrommen.no.
-- [ ] **REQ-002** — Apply 25% VAT to fetched spot prices before display.
-- [ ] **REQ-003** — Add time-of-use grid tariff (36.40 / 26.40 øre/kWh) on top of the VAT-inclusive price.
-- [ ] **REQ-004** — Display hourly prices labelled in CET/CEST with the date visible.
-- [ ] **REQ-005** — Store fetched price data in SQLite keyed by zone and date.
-- [ ] **REQ-006** — Offer NO1–NO5 as selectable zones, default NO1.
-- [ ] **REQ-007** — When clock passes 12:45 CET/CEST, fetch tomorrow's prices for the selected zone.
-- [ ] **REQ-008** — Display remaining hours of today together with fetched hours of tomorrow.
-- [ ] **REQ-009** — Reload prices without page reload when the zone changes.
-- [ ] **REQ-010** — Show "price is nothing to worry about" message when Norgespris is enabled.
-- [ ] **REQ-011** — While Norgespris is enabled, hide all UI elements other than the confirmation text.
-- [ ] **REQ-012** — Highlight N individually cheapest hours (over remaining today + tomorrow when available) when contiguous mode is off.
-- [ ] **REQ-013** — Highlight contiguous block of N hours with lowest average (over remaining today + tomorrow when available) when contiguous mode is on.
-- [ ] **REQ-014** — Show a configuration prompt while zone or charging-hours are unset.
-- [ ] **REQ-015** — Show a loading indicator while price data is being fetched.
-- [ ] **REQ-016** — Withhold the recommendation while the API request is in flight.
-- [ ] **REQ-017** — On app open, serve SQLite-cached data when the next 12:45 publish window has not yet passed since fetch.
-- [ ] **REQ-018** — Persist the selected zone in `localStorage`.
-- [ ] **REQ-019** — On upstream API error/timeout, fall back to the most-recent cached data.
-- [ ] **REQ-020** — When upstream fails and no cache exists, show an unavailable-prices error.
-- [ ] **REQ-021** — Show a message when requested charging hours exceed available hours.
-- [ ] **REQ-022** — Render a line graph colour-coded cheap / medium / expensive vs. today's average.
-- [ ] **REQ-023** — Expose price data via a backend `/api/` endpoint; the browser does not call hvakosterstrommen.no directly.
-- [ ] **REQ-024** — Vendor a single static JS chart library under `frontend/vendor/` (version pinned, SHA-256 in header) for the line graph.
+- [x] **REQ-001** — On app open, fetch today's hourly spot prices for the selected zone from hvakosterstrommen.no.
+- [x] **REQ-002** — Apply 25% VAT to fetched spot prices before display.
+- [x] **REQ-003** — Add time-of-use grid tariff (36.40 / 26.40 øre/kWh) on top of the VAT-inclusive price.
+- [x] **REQ-004** — Display hourly prices labelled in CET/CEST with the date visible.
+- [x] **REQ-005** — Store fetched price data in SQLite keyed by zone and date.
+- [x] **REQ-006** — Offer NO1–NO5 as selectable zones, default NO1.
+- [x] **REQ-007** — When clock passes 12:45 CET/CEST, fetch tomorrow's prices for the selected zone.
+- [x] **REQ-008** — Display remaining hours of today together with fetched hours of tomorrow.
+- [x] **REQ-009** — Reload prices without page reload when the zone changes.
+- [x] **REQ-010** — Show "price is nothing to worry about" message when Norgespris is enabled.
+- [x] **REQ-011** — While Norgespris is enabled, hide all UI elements other than the confirmation text.
+- [x] **REQ-012** — Highlight N individually cheapest hours (over remaining today + tomorrow when available) when contiguous mode is off.
+- [x] **REQ-013** — Highlight contiguous block of N hours with lowest average (over remaining today + tomorrow when available) when contiguous mode is on.
+- [x] **REQ-014** — Show a configuration prompt while zone or charging-hours are unset.
+- [x] **REQ-015** — Show a loading indicator while price data is being fetched.
+- [x] **REQ-016** — Withhold the recommendation while the API request is in flight.
+- [x] **REQ-017** — On app open, serve SQLite-cached data when the next 12:45 publish window has not yet passed since fetch.
+- [x] **REQ-018** — Persist the selected zone in `localStorage`.
+- [x] **REQ-019** — On upstream API error/timeout, fall back to the most-recent cached data.
+- [x] **REQ-020** — When upstream fails and no cache exists, show an unavailable-prices error.
+- [x] **REQ-021** — Show a message when requested charging hours exceed available hours.
+- [x] **REQ-022** — Render a line graph colour-coded cheap / medium / expensive vs. today's average.
+- [x] **REQ-023** — Expose price data via a backend `/api/` endpoint; the browser does not call hvakosterstrommen.no directly.
+- [x] **REQ-024** — Vendor a single static JS chart library under `frontend/vendor/` (version pinned, SHA-256 in header) for the line graph.
 
 ## Requirements
 
