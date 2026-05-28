@@ -15,6 +15,10 @@ function applyNorgespris(enabled) {
   localStorage.setItem(NORGESPRIS_KEY, enabled ? 'true' : 'false');
 }
 
+// REQ-022/024 — bucket thresholds for the price line chart colouring.
+const CHEAP_THRESHOLD = 0.9;
+const EXPENSIVE_THRESHOLD = 1.1;
+
 const ZONE_KEY = 'zone';
 const HOURS_KEY = 'hours';
 const CONTIGUOUS_KEY = 'contiguous';
@@ -98,11 +102,60 @@ async function loadPrices() {
         <td class="py-1 text-right font-mono font-semibold">${fmt(hour.total)}</td>`;
       tbody.appendChild(tr);
     }
+    // REQ-022/024 — line chart over the whole window, coloured by today's mean.
+    const todayDate = data.date;
+    const todayHours = data.hours.filter((h) => h.start.startsWith(todayDate));
+    const avg = todayHours.length
+      ? todayHours.reduce((s, h) => s + h.total, 0) / todayHours.length
+      : 0;
+    renderChart(data.hours, avg);
   } catch (e) {
     showError('Could not load prices.');
   } finally {
     loading.hidden = true;
   }
+}
+
+function bucketHour(price, avg) {
+  if (price < avg * CHEAP_THRESHOLD) return 'cheap';
+  if (price > avg * EXPENSIVE_THRESHOLD) return 'expensive';
+  return 'medium';
+}
+
+const BUCKET_COLOURS = {
+  cheap: '#16a34a',
+  medium: '#64748b',
+  expensive: '#dc2626',
+};
+
+function renderChart(hours, avg) {
+  const canvas = document.getElementById('price-chart');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const labels = hours.map((h) => hourLabel(h.start));
+  const values = hours.map((h) => h.total);
+  const colours = hours.map((h) => BUCKET_COLOURS[bucketHour(h.total, avg)]);
+  if (window._chart) window._chart.destroy();
+  window._chart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Total (øre/kWh)',
+        data: values,
+        borderColor: '#475569',
+        backgroundColor: 'rgba(71, 85, 105, 0.1)',
+        pointBackgroundColor: colours,
+        pointBorderColor: colours,
+        pointRadius: 4,
+        tension: 0.2,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: false } },
+    },
+  });
 }
 
 function clearHighlights() {

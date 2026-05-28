@@ -15,6 +15,17 @@ Two SHA-256 values are tracked to keep audits unambiguous:
 - **Upstream (jsDelivr body, pre-header):** `b91f8cd2dbae57f19d35a51934e6e4af24865d9725d4acf737a2993794270a1e` — matches the jsDelivr per-file SRI hash and the value recorded in the header comment at the top of `vendor/tailwind.js`. Use this to verify the upstream payload during a re-vendor.
 - **Committed file (with header prepended):** `f29049665db504abd160f514c09c26dd995c0c1cbdbe5cd4fcbf47697cbcd504` — matches `shasum -a 256 vendor/tailwind.js` against the file as checked into the repo. Use this to verify the working-tree copy hasn't drifted.
 
+## Vendored Chart.js
+
+We vendor a pinned copy of Chart.js v4.4.1 (UMD minified bundle) at `vendor/chart.umd.min.js`. The price-chart canvas in `index.html` is rendered by code in `app.js` that calls into the global `Chart` constructor exposed by this bundle.
+
+Two SHA-256 values are tracked:
+
+- **Upstream (jsDelivr body, pre-header):** `d2af8974e95271638772e9e9524db5b9a6f58d6ec2d5d781400447b4a31c681e` — matches the value recorded in the header comment at the top of `vendor/chart.umd.min.js`. Use this to verify the upstream payload during a re-vendor.
+- **Committed file (with header prepended):** `d8f648d5874c6cb2ded6b0e89fa2d2826b0978cab79d9b7f8d50bd909da7e469` — matches `Get-FileHash -Algorithm SHA256 vendor/chart.umd.min.js` against the file as checked into the repo.
+
+To re-vendor, follow the same procedure as Tailwind below, substituting the Chart.js URL: `https://cdn.jsdelivr.net/npm/chart.js@V/dist/chart.umd.min.js`.
+
 ## Re-vendoring procedure (with SHA-256 verification)
 
 When updating Tailwind:

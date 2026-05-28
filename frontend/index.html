@@ -10,6 +10,7 @@
     (see https://tailwindcss.com/docs/installation).
   -->
   <script src="vendor/tailwind.js" defer></script>
+  <script src="vendor/chart.umd.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-900 font-sans">
@@ -58,6 +59,8 @@
 
       <!-- REQ-016: hidden while /api/recommendation is in flight. -->
       <div id="recommendation-panel" class="text-sm text-slate-700" hidden></div>
+
+      <canvas id="price-chart" height="120"></canvas>
 
       <table class="w-full text-sm">
         <thead>
